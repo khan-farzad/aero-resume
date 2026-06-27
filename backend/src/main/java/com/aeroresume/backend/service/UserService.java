@@ -5,7 +5,6 @@
 package com.aeroresume.backend.service;
 
 import com.aeroresume.backend.Repository.UserRepository;
-import com.aeroresume.backend.dto.LoginRequest;
 import com.aeroresume.backend.dto.SignupRequest;
 import com.aeroresume.backend.model.User;
 import java.util.Optional;
