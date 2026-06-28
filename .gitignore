@@ -40,3 +40,10 @@ frontend/.vercel
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 /frontend/nbproject/private/
+
+#NetBeans specific
+backend/nbactions.xml
+backend/nb-configuration.xml
+
+# NetBeans project metadata
+backend/nbproject/
