@@ -6,6 +6,7 @@ package com.aeroresume.backend.service;
 
 import com.aeroresume.backend.Repository.UserRepository;
 import com.aeroresume.backend.dto.SignupRequest;
+import com.aeroresume.backend.mapper.UserMapper;
 import com.aeroresume.backend.model.User;
 import java.util.Optional;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -21,7 +22,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, UserMapper userMapper) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
@@ -31,12 +32,15 @@ public class UserService {
             throw new IllegalArgumentException("Email already exists!");
         }
         
-        User user = User.builder()
-                .email(request.getEmail())
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .password(passwordEncoder.encode(request.getPassword()))    //Hash Password
-                .build();
+        // 2. Hash the password using the manual getter
+        String hashedPassword = passwordEncoder.encode(request.getPassword());
+        
+        User user = new User(
+                request.getEmail(), 
+                hashedPassword, 
+                request.getFirstName(), 
+                request.getLastName()
+        );
         
         return userRepository.save(user);
     }

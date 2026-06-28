@@ -2,42 +2,22 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package com.aeroresume.backend.model;
+package com.aeroresume.backend.dto;
 
-import jakarta.persistence.*;
 
 /**
  *
  * @author suhaib
  */
-@Entity
-@Table(name = "user")
-public class User {
+public class UserDto {
         
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(nullable = false, unique = true)
     private String email;
-    
-    @Column(nullable = false)
-    private String password;
-    
-    @Column(nullable = false)
+        
     private String firstName;
     
-    @Column(nullable = false)
     private String lastName;
-    
-    public User() {}
-
-    public User(String email, String password, String firstName, String lastName) {
-        this.email = email;
-        this.password = password;
-        this.firstName = firstName;
-        this.lastName = lastName;
-    }
 
     public Long getId() {
         return id;
@@ -55,14 +35,6 @@ public class User {
         this.email = email;
     }
 
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
     public String getFirstName() {
         return firstName;
     }
@@ -78,6 +50,4 @@ public class User {
     public void setLastName(String lastName) {
         this.lastName = lastName;
     }
-    
-    
 }
