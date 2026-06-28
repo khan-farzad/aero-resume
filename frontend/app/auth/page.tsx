@@ -4,9 +4,9 @@ import AuthForm from "./_components/AuthForm";
 export default function Home() {
   const loginFields = [
     {
-      name: "username/email",
+      name: "email",
       type: "text",
-      placeholder: "Username/Email",
+      placeholder: "Email",
     },
     {
       name: "password",
@@ -17,11 +17,6 @@ export default function Home() {
 
   const signupFields = [
     {
-      name: "username",
-      type: "text",
-      placeholder: "Username",
-    },
-    {
       name: "email",
       type: "email",
       placeholder: "Email",
@@ -30,11 +25,6 @@ export default function Home() {
       name: "password",
       type: "password",
       placeholder: "Password",
-    },
-    {
-      name: "password",
-      type: "password",
-      placeholder: "Confirm Password",
     },
   ];
 
@@ -46,12 +36,14 @@ export default function Home() {
         subtitle="use your email and password"
         buttonText="SIGN IN"
         fields={loginFields}
+        isLogin={true}
       />
       <AuthForm
         title="Create Account"
         subtitle="use your email for registration"
         buttonText="SIGN UP"
         fields={signupFields}
+        isLogin={false}
       />
     </div>
   );

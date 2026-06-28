@@ -4,35 +4,45 @@ import { ChangeEvent, useState } from "react";
 type User = {
   email?: string;
   password?: string;
-  username?: string;
+  firstName?: string;
+  lastName?: string;
 };
+
 type AuthFormProps = {
   title: string;
   subtitle: string;
   buttonText: string;
   fields: Fields[];
+  isLogin: boolean;
 };
 
-const AuthForm = ({ title, subtitle, buttonText, fields }: AuthFormProps) => {
+const AuthForm = ({ title, subtitle, buttonText, fields, isLogin }: AuthFormProps) => {
   const [user, setUser] = useState<User>({});
+
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const field = e.target.name;
-    const value = e.target.value;
-    if (field === "username/email") {
-      setUser({
-        ...user,
-        username: value,
-        email: value,
-      });
-    } else {
-      setUser({
-        ...user,
-        [e.target.name]: value,
-      });
-    }
+    setUser({
+      ...user,
+      [e.target.name]: e.target.value,
+    });
   };
-  const handleSubmit = () => {
-    console.log(user);
+
+  const handleSubmit = async () => {
+    try {
+      const res = await fetch(
+        `http://localhost:8080/api/auth/${isLogin ? "login" : "signup"}`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(user),
+        },
+      );
+      const data = await res.json();
+      console.log(data);
+    } catch (error) {
+      console.error("error in signing up.", error);
+    }
   };
 
   return (
@@ -41,7 +51,25 @@ const AuthForm = ({ title, subtitle, buttonText, fields }: AuthFormProps) => {
         <h2 className="font-semibold text-2xl">{title}</h2>
         <p className="font-extralight text-xs text-black/50">{subtitle}</p>
       </div>
-      <div className="*:bg-slate-200  flex flex-col gap-4 w-3/4 justify-evenly">
+      <div className="flex flex-col gap-4 w-3/4 justify-evenly">
+        {!isLogin && (
+          <div className="grid grid-cols-2 gap-4">
+            <input
+              name="firstName"
+              placeholder="First Name"
+              type="text"
+              onChange={(e) => handleChange(e)}
+              className="rounded-md bg-slate-200 px-4 py-2 placeholder:text-sm"
+            ></input>
+            <input
+              name="lastName"
+              placeholder="Last Name"
+              type="text"
+              onChange={(e) => handleChange(e)}
+              className="rounded-md bg-slate-200 px-4 py-2 placeholder:text-sm"
+            ></input>
+          </div>
+        )}
         {fields.map((f, i) => (
           <input
             key={i}
@@ -49,7 +77,7 @@ const AuthForm = ({ title, subtitle, buttonText, fields }: AuthFormProps) => {
             placeholder={f.placeholder}
             type={f.type}
             onChange={(e) => handleChange(e)}
-            className="rounded-md px-4 py-2 placeholder:text-sm"
+            className="rounded-md bg-slate-200 px-4 py-2 placeholder:text-sm"
           ></input>
         ))}
       </div>
