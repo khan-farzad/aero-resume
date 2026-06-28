@@ -1,4 +1,5 @@
 "use client";
+import { Eye, EyeOff } from "lucide-react";
 import { ChangeEvent, useState } from "react";
 
 type User = {
@@ -18,6 +19,7 @@ type AuthFormProps = {
 
 const AuthForm = ({ title, subtitle, buttonText, fields, isLogin }: AuthFormProps) => {
   const [user, setUser] = useState<User>({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setUser({
@@ -70,16 +72,34 @@ const AuthForm = ({ title, subtitle, buttonText, fields, isLogin }: AuthFormProp
             ></input>
           </div>
         )}
-        {fields.map((f, i) => (
-          <input
-            key={i}
-            name={f.name}
-            placeholder={f.placeholder}
-            type={f.type}
-            onChange={(e) => handleChange(e)}
-            className="rounded-md bg-slate-200 px-4 py-2 placeholder:text-sm"
-          ></input>
-        ))}
+        {fields.map((f, i) =>
+          f.type == "password" ? (
+            <div key={i} className="relative w-full flex-1 z-0">
+              <input
+                name={f.name}
+                placeholder={f.placeholder}
+                type={showPassword ? "text" : "password"}
+                onChange={(e) => handleChange(e)}
+                className="rounded-md bg-slate-200 px-4 py-2 placeholder:text-sm w-full"
+              ></input>
+              <button
+                className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-black/50 hover:text-black"
+                onClick={() => setShowPassword(x => !x)}
+              >
+                {showPassword ? <EyeOff/>:<Eye/> }
+              </button>
+            </div>
+          ) : (
+            <input
+              key={i}
+              name={f.name}
+              placeholder={f.placeholder}
+              type={f.type}
+              onChange={(e) => handleChange(e)}
+              className="rounded-md bg-slate-200 px-4 py-2 placeholder:text-sm"
+            ></input>
+          ),
+        )}
       </div>
       <button
         onClick={handleSubmit}

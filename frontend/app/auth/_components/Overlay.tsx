@@ -6,7 +6,7 @@ const Overlay = () => {
   const [isLogin, setIsLogin] = useState(true);
   return (
     <div
-      className={`absolute top-0 left-0 size-full text-white flex md:flex-row flex-col rounded-4xl transition-all duration-500 overflow-hidden ${
+      className={`z-10 absolute top-0 left-0 size-full text-white flex md:flex-row flex-col rounded-4xl transition-all duration-500 overflow-hidden ${
         isLogin
           ? "translate-y-1/2 md:translate-y-0 md:translate-x-1/2"
           : "-translate-y-1/2 md:translate-y-0 md:-translate-x-1/2"
