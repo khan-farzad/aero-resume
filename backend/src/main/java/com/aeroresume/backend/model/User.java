@@ -5,6 +5,9 @@
 package com.aeroresume.backend.model;
 
 import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.List;
+import org.hibernate.annotations.CreationTimestamp;
 
 /**
  *
@@ -18,17 +21,29 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(nullable = false, unique = true)
+    @Column(name= "email", nullable = false, unique = true)
     private String email;
     
-    @Column(nullable = false)
+    @Column(name= "password", nullable = false)
     private String password;
     
-    @Column(nullable = false)
+    @Column(name= "first_name", nullable = false)
     private String firstName;
     
-    @Column(nullable = false)
+    @Column(name= "last_name", nullable = false)
     private String lastName;
+    
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Resume> resumes;
+    
+    @CreationTimestamp
+    @Column(name= "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+    
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = Instant.now();
+    }
     
     public User() {}
 
@@ -79,5 +94,11 @@ public class User {
         this.lastName = lastName;
     }
     
-    
+    public List<Resume> getResumes() {
+        return resumes;
+    }
+
+    public void setResumes(List<Resume> resumes) {
+        this.resumes = resumes;
+    }
 }
