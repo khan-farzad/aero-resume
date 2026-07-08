@@ -4,14 +4,19 @@
  */
 package com.aeroresume.backend.controller;
 
+import com.aeroresume.backend.dto.JwtResponse;
+import com.aeroresume.backend.Security.JwtUtils;
 import com.aeroresume.backend.dto.*;
 import com.aeroresume.backend.mapper.UserMapper;
 import com.aeroresume.backend.model.User;
 import com.aeroresume.backend.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -25,10 +30,15 @@ public class AuthController {
     
     private final UserService userService;
     private final UserMapper userMapper;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtils jwtUtils;
     
-    public AuthController(UserService userService, UserMapper userMapper) {
+    public AuthController(UserService userService, UserMapper userMapper, 
+                          AuthenticationManager authenticationManager, JwtUtils jwtUtils) {
         this.userService = userService;
         this.userMapper = userMapper;
+        this.authenticationManager = authenticationManager;
+        this.jwtUtils = jwtUtils;
     }
     
     @PostMapping("/signup")
@@ -47,16 +57,21 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> Login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         try {
-            //Verify user
-            User user = userService.verifyLogin(request.getEmail(), request.getPassword());
+            // Let Spring Security verify the email and BCrypt password
+            // (This automatically calls the UserDetailsServiceImpl class)
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
             
-            //Create Session
-            HttpSession session = httpRequest.getSession(true);
-            session.setAttribute("USER_ID", user.getId());
+            // Officially set the user as "logged in" for this request context
+            SecurityContextHolder.getContext().setAuthentication(authentication);
             
-            UserDto userDto = userMapper.userToUserDto(user);
+            // Generate the JWT string using their email
+            String jwt = jwtUtils.generateJwtToken(authentication.getName()); // getName() returns unique String that was used to create JWT token. Here, email.
             
-            return ResponseEntity.ok(userDto);
+            // Create a clean JSON response containing the token
+            JwtResponse response = new JwtResponse(jwt);
+            
+            return ResponseEntity.ok(response);
         }
         catch(Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());

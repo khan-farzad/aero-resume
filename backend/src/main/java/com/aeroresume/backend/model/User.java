@@ -6,8 +6,10 @@ package com.aeroresume.backend.model;
 
 import jakarta.persistence.*;
 import java.time.Instant;
-import java.util.List;
+import java.util.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  *
@@ -35,6 +37,10 @@ public class User {
     
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Resume> resumes;
+    
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "master_json_data", columnDefinition = "json")
+    private Map<String, Object> masterJsonData;
     
     @CreationTimestamp
     @Column(name= "created_at", nullable = false, updatable = false)
@@ -101,4 +107,13 @@ public class User {
     public void setResumes(List<Resume> resumes) {
         this.resumes = resumes;
     }
+
+    public Map<String, Object> getMasterJsonData() {
+        return masterJsonData;
+    }
+
+    public void setMasterJsonData(Map<String, Object> masterJsonData) {
+        this.masterJsonData = masterJsonData;
+    }
+    
 }
