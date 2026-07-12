@@ -4,11 +4,11 @@
  */
 package com.aeroresume.backend.service;
 
-import com.aeroresume.backend.Repository.UserRepository;
 import com.aeroresume.backend.dto.SignupRequest;
+import com.aeroresume.backend.dto.UserDto;
 import com.aeroresume.backend.mapper.UserMapper;
 import com.aeroresume.backend.model.User;
-import java.util.Optional;
+import com.aeroresume.backend.repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -21,13 +21,15 @@ public class UserService {
     
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
     
     public UserService(UserRepository userRepository, UserMapper userMapper) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
+        this.userMapper = userMapper;
     }
     
-    public User signup(SignupRequest request) {
+    public UserDto signup(SignupRequest request) {
         if(userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new IllegalArgumentException("Email already exists!");
         }
@@ -41,22 +43,28 @@ public class UserService {
                 request.getFirstName(), 
                 request.getLastName()
         );
-        
-        return userRepository.save(user);
+        userRepository.save(user);
+        UserDto userDto = userMapper.userToUserDto(user);
+        return userDto;
     }
     
-    public User verifyLogin(String email, String rawPassword) {
-        
-        Optional<User> userOptional;
-        userOptional = userRepository.findByEmail(email);
-        
-        User user = userOptional.orElseThrow(() -> new IllegalArgumentException("User not found"));
-        
-        //Comparing raw password with database hashed password
-        if(!passwordEncoder.matches(rawPassword, user.getPassword())) {
-            throw new IllegalArgumentException("Invalid password!");
-        }
-        
-        return user;
+    public UserDto getUserProfile(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("User not found"));
+            
+        UserDto userDto = userMapper.userToUserDto(user);
+
+        return userDto;
+    }
+
+    public UserDto updateUserProfile(String email, UserDto updatedUserDto) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        user.setFirstName(updatedUserDto.getFirstName());
+        user.setLastName(updatedUserDto.getLastName());
+        user.setMasterJsonData(updatedUserDto.getMasterJsonData());
+
+        userRepository.save(user);
+
+        return userMapper.userToUserDto(user);
     }
 }
