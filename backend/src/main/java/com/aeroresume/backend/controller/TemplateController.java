@@ -17,7 +17,6 @@ import java.util.*;
  */
 @RestController
 @RequestMapping("/api/template")
-@CrossOrigin(origins="http://localhost:3000")
 public class TemplateController {
     
     private final TemplateService templateService;

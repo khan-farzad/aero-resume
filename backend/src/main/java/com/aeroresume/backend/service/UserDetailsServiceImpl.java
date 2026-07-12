@@ -4,14 +4,12 @@
  */
 package com.aeroresume.backend.service;
 
-import com.aeroresume.backend.Repository.UserRepository;
 import com.aeroresume.backend.model.User;
+import com.aeroresume.backend.repository.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import java.util.ArrayList;
-
 
 /**
  *

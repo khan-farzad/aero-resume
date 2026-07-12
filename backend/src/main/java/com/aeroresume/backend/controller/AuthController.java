@@ -5,12 +5,11 @@
 package com.aeroresume.backend.controller;
 
 import com.aeroresume.backend.dto.JwtResponse;
-import com.aeroresume.backend.Security.JwtUtils;
 import com.aeroresume.backend.dto.*;
-import com.aeroresume.backend.mapper.UserMapper;
-import com.aeroresume.backend.model.User;
+import com.aeroresume.backend.security.JwtUtils;
 import com.aeroresume.backend.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,28 +24,23 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins="http://localhost:3000")
 public class AuthController {
     
     private final UserService userService;
-    private final UserMapper userMapper;
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     
-    public AuthController(UserService userService, UserMapper userMapper, 
-                          AuthenticationManager authenticationManager, JwtUtils jwtUtils) {
+    public AuthController(UserService userService, AuthenticationManager authenticationManager, JwtUtils jwtUtils) {
         this.userService = userService;
-        this.userMapper = userMapper;
         this.authenticationManager = authenticationManager;
         this.jwtUtils = jwtUtils;
     }
     
     @PostMapping("/signup")
-    public ResponseEntity<?> signup(@RequestBody SignupRequest request) {
+    public ResponseEntity<?> signup(@Valid @RequestBody SignupRequest request) {
         try{
-            User user = userService.signup(request);
+            UserDto userDto = userService.signup(request);
             
-            UserDto userDto = userMapper.userToUserDto(user);
             return ResponseEntity.status(HttpStatus.CREATED).body(userDto);
         }
         catch (IllegalArgumentException e) {
@@ -55,7 +49,7 @@ public class AuthController {
     }
      
     @PostMapping("/login")
-    public ResponseEntity<?> Login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         try {
             // Let Spring Security verify the email and BCrypt password
             // (This automatically calls the UserDetailsServiceImpl class)

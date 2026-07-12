@@ -20,9 +20,7 @@ public class TemplateResponse {
         this.id = id;
         this.name = name;
         this.previewImageUrl = previewImageUrl;
-    }
-    
-    
+    }    
 
     public long getId() {
         return id;

@@ -4,6 +4,7 @@
  */
 package com.aeroresume.backend.dto;
 
+import java.util.Map;
 
 /**
  *
@@ -18,6 +19,8 @@ public class UserDto {
     private String firstName;
     
     private String lastName;
+
+    private Map<String, Object> masterJsonData;
 
     public Long getId() {
         return id;
@@ -49,5 +52,13 @@ public class UserDto {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    public Map<String, Object> getMasterJsonData() {
+        return masterJsonData;
+    }
+
+    public void setMasterJsonData(Map<String, Object> masterJsonData) {
+        this.masterJsonData = masterJsonData;
     }
 }
