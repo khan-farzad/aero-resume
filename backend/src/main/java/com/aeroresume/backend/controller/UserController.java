@@ -7,14 +7,13 @@ package com.aeroresume.backend.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.aeroresume.backend.dto.UserDto;
+import com.aeroresume.backend.security.CustomUserDetails;
 import com.aeroresume.backend.service.UserService;
 
 /**
@@ -29,20 +28,20 @@ public class UserController {
     private UserService userService;
 
     @GetMapping("/profile")
-    public ResponseEntity<?> getUserProfile(@AuthenticationPrincipal UserDetails userDetail) {
+    public ResponseEntity<?> getUserProfile(@AuthenticationPrincipal CustomUserDetails userDetail) {
         
-        String email = userDetail.getUsername();
+        Long id = userDetail.getId();
 
-        UserDto userProfile = userService.getUserProfile(email);
+        UserDto userProfile = userService.getUserProfile(id);
 
         return ResponseEntity.ok().body(userProfile);
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<?> updateUserProfile(@AuthenticationPrincipal UserDetails userDetail, @RequestBody UserDto updatedUserDto) {
-        String email = userDetail.getUsername();
+    public ResponseEntity<?> updateUserProfile(@AuthenticationPrincipal CustomUserDetails userDetail, @RequestBody UserDto updatedUserDto) {
+        Long id = userDetail.getId();
 
-        UserDto userProfile = userService.updateUserProfile(email, updatedUserDto);
+        UserDto userProfile = userService.updateUserProfile(id, updatedUserDto);
 
         return ResponseEntity.ok().body(userProfile);
     }

@@ -38,38 +38,30 @@ public class AuthController {
     
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@Valid @RequestBody SignupRequest request) {
-        try{
-            UserDto userDto = userService.signup(request);
-            
-            return ResponseEntity.status(HttpStatus.CREATED).body(userDto);
-        }
-        catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        
+        UserDto userDto = userService.signup(request);
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(userDto);
     }
      
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        try {
-            // Let Spring Security verify the email and BCrypt password
-            // (This automatically calls the UserDetailsServiceImpl class)
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-            
-            // Officially set the user as "logged in" for this request context
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            
-            // Generate the JWT string using their email
-            String jwt = jwtUtils.generateJwtToken(authentication.getName()); // getName() returns unique String that was used to create JWT token. Here, email.
-            
-            // Create a clean JSON response containing the token
-            JwtResponse response = new JwtResponse(jwt);
-            
-            return ResponseEntity.ok(response);
-        }
-        catch(Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
-        }
+        
+        // Let Spring Security verify the email and BCrypt password
+        // (This automatically calls the UserDetailsServiceImpl class)
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        
+        // Officially set the user as "logged in" for this request context
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        
+        // Generate the JWT string using their email
+        String jwt = jwtUtils.generateJwtToken(authentication.getName()); // getName() returns unique String that was used to create JWT token. Here, email.
+        
+        // Create a clean JSON response containing the token
+        JwtResponse response = new JwtResponse(jwt);
+        
+        return ResponseEntity.ok(response);
     }
 }
 

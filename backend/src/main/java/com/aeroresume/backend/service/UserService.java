@@ -48,20 +48,26 @@ public class UserService {
         return userDto;
     }
     
-    public UserDto getUserProfile(String email) {
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("User not found"));
+    public UserDto getUserProfile(Long id) {
+        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
             
         UserDto userDto = userMapper.userToUserDto(user);
 
         return userDto;
     }
 
-    public UserDto updateUserProfile(String email, UserDto updatedUserDto) {
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("User not found"));
+    public UserDto updateUserProfile(Long id, UserDto updatedUserDto) {
+        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        user.setFirstName(updatedUserDto.getFirstName());
-        user.setLastName(updatedUserDto.getLastName());
-        user.setMasterJsonData(updatedUserDto.getMasterJsonData());
+        if(updatedUserDto.getFirstName() != null) {
+            user.setFirstName(updatedUserDto.getFirstName());
+        }
+        if(updatedUserDto.getLastName() != null) {
+            user.setLastName(updatedUserDto.getLastName());
+        }
+        if(updatedUserDto.getMasterJsonData() != null) {
+            user.setMasterJsonData(updatedUserDto.getMasterJsonData());
+        }
 
         userRepository.save(user);
 
