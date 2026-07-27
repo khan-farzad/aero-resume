@@ -6,6 +6,8 @@ package com.aeroresume.backend.service;
 
 import com.aeroresume.backend.model.User;
 import com.aeroresume.backend.repository.UserRepository;
+import com.aeroresume.backend.security.CustomUserDetails;
+
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -32,10 +34,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User Not Found with email: " + email));
 
         // 2. Translate your User entity into Spring's UserDetails object
-        return org.springframework.security.core.userdetails.User
-                .withUsername(user.getEmail())
-                .password(user.getPassword())
-                //.authorities(new ArrayList<>()) // Add roles here later if you need them
-                .build();
+        return new CustomUserDetails(user.getId(), user.getEmail(), user.getPassword());
     }
 }

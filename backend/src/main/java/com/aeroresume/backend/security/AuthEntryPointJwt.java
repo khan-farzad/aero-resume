@@ -19,6 +19,7 @@ import java.util.Map;
  *
  * @author suhaib
  */
+//Handles error while trying to access a secured REST resource without proper authentication
 @Component
 public class AuthEntryPointJwt implements AuthenticationEntryPoint {
 
