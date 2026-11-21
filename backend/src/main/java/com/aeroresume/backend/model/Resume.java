@@ -8,11 +8,14 @@ import jakarta.persistence.*;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
+
+import com.aeroresume.backend.constants.ResumeStatus;
 
 /**
  *
@@ -57,6 +60,14 @@ public class Resume {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private ResumeStatus status = ResumeStatus.DRAFT;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "run_id", unique = true)
+    private UUID runId;
 
     public Resume() {}
 
@@ -122,5 +133,21 @@ public class Resume {
     
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public void setStatus(ResumeStatus status) {
+        this.status = status;
+    }
+
+    public ResumeStatus getStatus() {
+        return status;
+    }
+
+    public void setRunId(UUID runId) {
+        this.runId = runId;
+    }
+
+    public UUID getRunId() {
+        return runId;
     }
 }

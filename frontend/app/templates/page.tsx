@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, FileText, LayoutTemplate, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, LayoutTemplate, LoaderCircle, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { API_BASE_URL, getApiErrorMessage } from "@/lib/api";
@@ -13,6 +13,46 @@ type ResumeTemplate = {
   name: string;
   previewImageUrl?: string | null;
 };
+
+type ResumeSummary = {
+  id: number;
+  name: string;
+  status?: ResumeStatus;
+};
+
+type ResumeStatus = "DRAFT" | "COMPILED" | "COMPLETED";
+
+type ResumeDetails = ResumeSummary & {
+  latexContent: string;
+  templateId?: number;
+};
+
+function isResumeStatus(value: unknown): value is ResumeStatus {
+  return value === "DRAFT" || value === "COMPILED" || value === "COMPLETED";
+}
+
+function isResumeSummary(value: unknown): value is ResumeSummary {
+  if (typeof value !== "object" || value === null) return false;
+  const resume = value as Record<string, unknown>;
+  return (
+    typeof resume.id === "number" &&
+    Number.isSafeInteger(resume.id) &&
+    resume.id > 0 &&
+    typeof resume.name === "string" &&
+    (resume.status === undefined || isResumeStatus(resume.status))
+  );
+}
+
+function isResumeDetails(value: unknown): value is ResumeDetails {
+  if (!isResumeSummary(value)) return false;
+  const resume = value as ResumeSummary & Record<string, unknown>;
+  return (
+    typeof resume.latexContent === "string" &&
+    Boolean(resume.latexContent.trim()) &&
+    (resume.templateId === undefined ||
+      (typeof resume.templateId === "number" && Number.isSafeInteger(resume.templateId)))
+  );
+}
 
 function isResumeTemplate(value: unknown): value is ResumeTemplate {
   if (typeof value !== "object" || value === null) return false;
@@ -38,10 +78,14 @@ function getPreviewUrl(path?: string | null) {
 export default function TemplatesPage() {
   const router = useRouter();
   const [templates, setTemplates] = useState<ResumeTemplate[]>([]);
+  const [resumes, setResumes] = useState<ResumeSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingResumes, setIsLoadingResumes] = useState(true);
   const [creatingTemplateId, setCreatingTemplateId] = useState<number | null>(null);
+  const [openingResumeId, setOpeningResumeId] = useState<number | null>(null);
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [resumeListError, setResumeListError] = useState("");
   const [createError, setCreateError] = useState("");
   const [resumeName, setResumeName] = useState("");
   const [resumeNameError, setResumeNameError] = useState("");
@@ -89,8 +133,82 @@ export default function TemplatesPage() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadResumes = async () => {
+      const token = window.localStorage.getItem("token");
+      if (!token) {
+        setIsLoadingResumes(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/resume/`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(await getApiErrorMessage(response, `Could not load your resumes (${response.status}).`));
+        }
+        const data: unknown = await response.json();
+        if (!Array.isArray(data) || !data.every(isResumeSummary)) {
+          throw new Error("The resume service returned invalid resume details.");
+        }
+        setResumes(data);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setResumeListError(error instanceof Error ? error.message : "Unable to load your saved resumes.");
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingResumes(false);
+      }
+    };
+
+    void loadResumes();
+    return () => controller.abort();
+  }, []);
+
+  const openResume = async (resume: ResumeSummary) => {
+    if (openingResumeId !== null || creatingTemplateId !== null) return;
+    setOpeningResumeId(resume.id);
+    setResumeListError("");
+
+    try {
+      const token = window.localStorage.getItem("token");
+      if (!token) {
+        setNeedsSignIn(true);
+        return;
+      }
+      const response = await fetch(`${API_BASE_URL}/api/resume/${resume.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, `Could not open this resume (${response.status}).`));
+      }
+      const payload: unknown = await response.json();
+      if (!isResumeDetails(payload)) {
+        throw new Error("The resume service did not return valid resume source data.");
+      }
+
+      window.sessionStorage.setItem(
+        `aero-resume-draft-${payload.id}`,
+        JSON.stringify({
+          latexString: payload.latexContent,
+          resumeName: payload.name,
+          status: payload.status ?? "DRAFT",
+        }),
+      );
+      const query = new URLSearchParams({ resumeId: String(payload.id) });
+      if (payload.templateId !== undefined) query.set("templateId", String(payload.templateId));
+      router.push(`/editor?${query}`);
+    } catch (error) {
+      setResumeListError(error instanceof Error ? error.message : "Unable to open this resume.");
+    } finally {
+      setOpeningResumeId(null);
+    }
+  };
+
   const startProject = async (template: ResumeTemplate) => {
-    if (creatingTemplateId !== null) return;
+    if (creatingTemplateId !== null || openingResumeId !== null) return;
     const trimmedResumeName = resumeName.trim();
     if (!trimmedResumeName) {
       setResumeNameError("Enter a name for your resume before choosing a template.");
@@ -109,14 +227,17 @@ export default function TemplatesPage() {
         return;
       }
 
-      const query = new URLSearchParams({
-        templateId: String(template.id),
-        resumeName: trimmedResumeName,
+      const response = await fetch(`${API_BASE_URL}/api/resume/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          templateId: template.id,
+          resumeName: trimmedResumeName,
+        }),
       });
-      const response = await fetch(`${API_BASE_URL}/api/resume/?${query}`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
       if (!response.ok) {
         throw new Error(
           await getApiErrorMessage(response, `Could not create a resume (${response.status}).`),
@@ -145,7 +266,11 @@ export default function TemplatesPage() {
 
       window.sessionStorage.setItem(
         `aero-resume-draft-${resumeId}`,
-        JSON.stringify({ latexString, resumeName: createdName }),
+        JSON.stringify({
+          latexString,
+          resumeName: createdName,
+          status: isResumeStatus(createdResume.status) ? createdResume.status : "DRAFT",
+        }),
       );
       router.push(`/editor?templateId=${template.id}&resumeId=${resumeId}`);
     } catch (createError) {
@@ -175,6 +300,50 @@ export default function TemplatesPage() {
           <span className="landing-eyebrow"><LayoutTemplate size={14} /> TEMPLATE GALLERY</span>
           <h1>Choose your starting point</h1>
           <p>Name your resume, then select a template to open the editor.</p>
+        </div>
+
+        <section className="saved-resumes-section" aria-labelledby="saved-resumes-heading">
+          <div className="saved-resumes-heading">
+            <div>
+              <span className="landing-eyebrow"><FileText size={14} /> YOUR WORK</span>
+              <h2 id="saved-resumes-heading">Your resumes</h2>
+              <p>Continue editing a saved resume or start a new project below.</p>
+            </div>
+          </div>
+          {isLoadingResumes && <p className="template-state">Loading your resumes…</p>}
+          {resumeListError && <p className="template-state template-error" role="alert">{resumeListError}</p>}
+          {!isLoadingResumes && !resumeListError && resumes.length === 0 && (
+            <p className="saved-resumes-empty">No saved resumes yet. Choose a template below to create your first one.</p>
+          )}
+          {resumes.length > 0 && (
+            <div className="saved-resume-list">
+              {resumes.map((resume) => (
+                <button
+                  className="saved-resume-card"
+                  type="button"
+                  key={resume.id}
+                  onClick={() => void openResume(resume)}
+                  disabled={openingResumeId !== null || creatingTemplateId !== null}
+                >
+                  <span className="saved-resume-icon"><FileText size={18} /></span>
+                  <span className="saved-resume-copy">
+                    <strong>{resume.name || "Untitled resume"}</strong>
+                    <small>Resume #{resume.id}{resume.status ? ` · ${resume.status.toLowerCase()}` : ""}</small>
+                  </span>
+                  <span className="saved-resume-action">
+                    {openingResumeId === resume.id
+                      ? <LoaderCircle size={17} className="saved-resume-spinner" />
+                      : <ArrowRight size={17} />}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <div className="templates-section-heading">
+          <span className="landing-eyebrow"><LayoutTemplate size={14} /> NEW PROJECT</span>
+          <h2>Start with a template</h2>
         </div>
 
         <label className="new-resume-name-field">
@@ -225,7 +394,7 @@ export default function TemplatesPage() {
                   className="template-card"
                   type="button"
                   onClick={() => void startProject(template)}
-                  disabled={creatingTemplateId !== null}
+                  disabled={creatingTemplateId !== null || openingResumeId !== null}
                   key={template.id}
                 >
                   <div className="template-image">

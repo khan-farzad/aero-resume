@@ -26,6 +26,7 @@ import {
   useState,
 } from "react";
 import { API_BASE_URL, getApiErrorMessage } from "@/lib/api";
+import PdfPreview from "./PdfPreview";
 
 type ChatMessage = {
   role: "assistant" | "user";
@@ -35,13 +36,20 @@ type ChatMessage = {
 type ResumeDraft = {
   latexString: string;
   resumeName: string;
+  status?: "DRAFT" | "COMPILED" | "COMPLETED";
 };
+
+type ResumeStatus = "DRAFT" | "COMPILED" | "COMPLETED";
+
+function isResumeStatus(value: unknown): value is ResumeStatus {
+  return value === "DRAFT" || value === "COMPILED" || value === "COMPLETED";
+}
 
 export default function EditorWorkspace({
   templateId,
   resumeId,
 }: {
-  templateId: string;
+  templateId?: string;
   resumeId: number;
 }) {
   const draftStorageKey = `aero-resume-draft-${resumeId}`;
@@ -69,15 +77,22 @@ export default function EditorWorkspace({
       ) {
         return null;
       }
-      return { latexString: record.latexString, resumeName: record.resumeName };
+      return {
+        latexString: record.latexString,
+        resumeName: record.resumeName,
+        status: isResumeStatus(record.status) ? record.status : undefined,
+      };
     } catch {
       return null;
     }
   }, [storedDraft]);
   const [editedLatex, setEditedLatex] = useState<string | null>(null);
   const [editedResumeName, setEditedResumeName] = useState<string | null>(null);
+  const [editedStatus, setEditedStatus] = useState<ResumeStatus | null>(null);
+  const [isPreviewOutdated, setIsPreviewOutdated] = useState(false);
   const latex = editedLatex ?? draft?.latexString ?? "";
   const resumeName = editedResumeName ?? draft?.resumeName ?? "";
+  const resumeStatus = editedStatus ?? draft?.status ?? "DRAFT";
   const isLoadingLatex = storedDraft === undefined;
   const isLatexLoaded = Boolean(draft?.latexString.trim());
   const sourceUnavailableError =
@@ -86,6 +101,7 @@ export default function EditorWorkspace({
       : "";
   const [pdfUrl, setPdfUrl] = useState("");
   const [isCompiling, setIsCompiling] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [compileError, setCompileError] = useState("");
   const displayError = compileError || sourceUnavailableError;
   const [resumeNameError, setResumeNameError] = useState("");
@@ -106,10 +122,10 @@ export default function EditorWorkspace({
     };
   }, [pdfUrl]);
 
-  const compileResume = useCallback(async (source: string) => {
+  const compileResume = useCallback(async (source: string, isFinalExport = false) => {
     const trimmedResumeName = resumeName.trim();
     if (!trimmedResumeName) {
-      setResumeNameError("Enter a resume name before compiling.");
+      setResumeNameError(`Enter a resume name before ${isFinalExport ? "downloading" : "compiling"}.`);
       resumeNameInputRef.current?.focus();
       return;
     }
@@ -119,12 +135,26 @@ export default function EditorWorkspace({
       return;
     }
 
-    setIsCompiling(true);
+    if (isFinalExport) {
+      setIsExporting(true);
+    } else {
+      setIsCompiling(true);
+      setPdfUrl("");
+    }
     setCompileError("");
     setResumeNameError("");
-    setPdfUrl("");
 
     try {
+      const requestBody: Record<string, unknown> = {
+        resumeName: trimmedResumeName,
+        latexString: source,
+        isFinalExport,
+        resumeId,
+      };
+      if (templateId && /^\d+$/.test(templateId)) {
+        requestBody.templateId = Number(templateId);
+      }
+
       const response = await fetch(
         `${API_BASE_URL}/api/resume/compile`,
         {
@@ -133,13 +163,7 @@ export default function EditorWorkspace({
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            resumeName: trimmedResumeName,
-            latexString: source,
-            isFinalExport: false,
-            resumeId,
-            templateId: Number(templateId),
-          }),
+          body: JSON.stringify(requestBody),
         },
       );
 
@@ -160,6 +184,17 @@ export default function EditorWorkspace({
 
       const pdf = new Blob([responseBlob], { type: "application/pdf" });
       setPdfUrl(URL.createObjectURL(pdf));
+      setEditedStatus(isFinalExport ? "COMPLETED" : "COMPILED");
+      setIsPreviewOutdated(false);
+      if (isFinalExport) {
+        const link = document.createElement("a");
+        const filename = trimmedResumeName.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-");
+        const downloadUrl = URL.createObjectURL(pdf);
+        link.href = downloadUrl;
+        link.download = `${filename || "resume"}.pdf`;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+      }
     } catch (error) {
       setCompileError(
         error instanceof Error
@@ -168,18 +203,9 @@ export default function EditorWorkspace({
       );
     } finally {
       setIsCompiling(false);
+      setIsExporting(false);
     }
   }, [resumeId, resumeName, templateId]);
-
-  const downloadResume = () => {
-    if (!pdfUrl) return;
-
-    const link = document.createElement("a");
-    link.href = pdfUrl;
-    const filename = resumeName.trim().replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-");
-    link.download = `${filename || "resume"}.pdf`;
-    link.click();
-  };
 
   const sendChatMessage = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -220,6 +246,8 @@ export default function EditorWorkspace({
             value={resumeName}
             onChange={(event) => {
               setEditedResumeName(event.target.value);
+              setEditedStatus("DRAFT");
+              setIsPreviewOutdated(true);
               if (event.target.value.trim()) setResumeNameError("");
             }}
             maxLength={120}
@@ -228,8 +256,22 @@ export default function EditorWorkspace({
         <div className="topbar-spacer" />
         <AccountActions />
         <div className="save-state">
-          <span className="status-dot" />
-          {isLoadingLatex ? "Loading template" : "Draft in editor"}
+          <span
+            className={`status-dot ${
+              resumeStatus === "COMPLETED"
+                ? "status-dot-complete"
+                : resumeStatus === "COMPILED"
+                  ? "status-dot-compiled"
+                  : "status-dot-draft"
+            }`}
+          />
+          {isLoadingLatex
+            ? "Loading resume"
+            : resumeStatus === "COMPLETED"
+              ? "Completed"
+              : resumeStatus === "COMPILED"
+                ? "Compiled"
+                : "Draft in editor"}
         </div>
       </header>
       {resumeNameError && (
@@ -274,7 +316,11 @@ export default function EditorWorkspace({
                 autoCorrect="off"
                 spellCheck={false}
                 value={latex}
-                onChange={(event) => setEditedLatex(event.target.value)}
+                onChange={(event) => {
+                  setEditedLatex(event.target.value);
+                  setEditedStatus("DRAFT");
+                  setIsPreviewOutdated(true);
+                }}
                 onScroll={(event) => {
                   if (gutterRef.current) {
                     gutterRef.current.scrollTop = event.currentTarget.scrollTop;
@@ -354,24 +400,30 @@ export default function EditorWorkspace({
               <span className="section-icon preview-icon"><FileText size={16} /></span>
               <div>
                 <h2>Resume preview</h2>
-                <p>{pdfUrl ? "Compiled just now" : "Compile to see your latest changes"}</p>
+                <p>
+                  {pdfUrl
+                    ? isPreviewOutdated
+                      ? "Preview is out of date"
+                      : "Compiled preview"
+                    : "Compile to see your latest changes"}
+                </p>
               </div>
             </div>
             <div className="preview-actions">
               <button
                 className="download-button"
                 type="button"
-                onClick={downloadResume}
-                disabled={!pdfUrl}
+                onClick={() => void compileResume(latex, true)}
+                disabled={isCompiling || isExporting || !isLatexLoaded}
               >
                 <ArrowDownToLine size={15} />
-                <span>Download</span>
+                <span>{isExporting ? "Exporting..." : "Download"}</span>
               </button>
               <button
                 className="compile-button"
                 type="button"
-                onClick={() => void compileResume(latex)}
-                disabled={isCompiling || !isLatexLoaded}
+                onClick={() => void compileResume(latex, false)}
+                disabled={isCompiling || isExporting || !isLatexLoaded}
               >
                 <Play size={14} fill="currentColor" />
                 <span>{isCompiling ? "Compiling..." : "Compile"}</span>
@@ -395,11 +447,7 @@ export default function EditorWorkspace({
 
           <div className="pdf-stage">
             {pdfUrl ? (
-              <iframe
-                className="pdf-frame"
-                src={pdfUrl}
-                title="Compiled resume PDF"
-              />
+              <PdfPreview key={pdfUrl} pdfUrl={pdfUrl} />
             ) : (
               <div className="pdf-empty-state" role="status">
                 {isLoadingLatex

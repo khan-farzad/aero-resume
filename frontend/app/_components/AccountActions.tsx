@@ -3,26 +3,65 @@
 import { LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+
+const authChangeEvent = "aero-auth-change";
+
+function isActiveToken(token: string | null) {
+  if (!token) return false;
+
+  try {
+    const [, encodedPayload] = token.split(".");
+    if (!encodedPayload) return false;
+    const base64Payload = encodedPayload.replace(/-/g, "+").replace(/_/g, "/");
+    const decodedPayload = window.atob(
+      base64Payload.padEnd(Math.ceil(base64Payload.length / 4) * 4, "="),
+    );
+    const payload: unknown = JSON.parse(decodedPayload);
+    if (typeof payload !== "object" || payload === null) return false;
+    const expiration = (payload as Record<string, unknown>).exp;
+    return typeof expiration === "number" && expiration * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function subscribeToAuth(onStoreChange: () => void) {
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "visible") onStoreChange();
+  };
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(authChangeEvent, onStoreChange);
+  window.addEventListener("focus", onStoreChange);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  const expiryCheck = window.setInterval(onStoreChange, 30_000);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(authChangeEvent, onStoreChange);
+    window.removeEventListener("focus", onStoreChange);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.clearInterval(expiryCheck);
+  };
+}
+
+function getAuthSnapshot() {
+  return isActiveToken(window.localStorage.getItem("token"));
+}
 
 export default function AccountActions() {
   const router = useRouter();
-  const [isReady, setIsReady] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const isAuthenticated = useSyncExternalStore(
+    subscribeToAuth,
+    getAuthSnapshot,
+    () => false,
+  );
 
   useEffect(() => {
-    const syncAuthState = () => {
-      setIsAuthenticated(Boolean(window.localStorage.getItem("token")));
-      setIsReady(true);
-    };
-
-    syncAuthState();
-    window.addEventListener("storage", syncAuthState);
-    window.addEventListener("aero-auth-change", syncAuthState);
-    return () => {
-      window.removeEventListener("storage", syncAuthState);
-      window.removeEventListener("aero-auth-change", syncAuthState);
-    };
+    const token = window.localStorage.getItem("token");
+    if (token && !isActiveToken(token)) {
+      window.localStorage.removeItem("token");
+      window.dispatchEvent(new Event(authChangeEvent));
+    }
   }, []);
 
   const signOut = () => {
@@ -32,15 +71,10 @@ export default function AccountActions() {
         window.sessionStorage.removeItem(key);
       }
     }
-    setIsAuthenticated(false);
-    window.dispatchEvent(new Event("aero-auth-change"));
+    window.dispatchEvent(new Event(authChangeEvent));
     router.push("/");
     router.refresh();
   };
-
-  if (!isReady) {
-    return <div className="account-actions account-actions-loading" aria-hidden="true" />;
-  }
 
   if (!isAuthenticated) {
     return (
