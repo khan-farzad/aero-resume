@@ -5,9 +5,17 @@
 package com.aeroresume.backend.model;
 
 import jakarta.persistence.*;
+
+import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
+
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
+
+import com.aeroresume.backend.constants.ResumeStatus;
 
 /**
  *
@@ -20,6 +28,9 @@ public class Resume {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "name", nullable = false)
+    private String name;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false)
@@ -42,6 +53,22 @@ public class Resume {
     @Column(name = "final_export_url")
     private String finalExportUrl;
 
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private ResumeStatus status = ResumeStatus.DRAFT;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "run_id", unique = true)
+    private UUID runId;
+
     public Resume() {}
 
     public Long getId() {
@@ -50,6 +77,14 @@ public class Resume {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public Template getTemplate() {
@@ -98,5 +133,21 @@ public class Resume {
     
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public void setStatus(ResumeStatus status) {
+        this.status = status;
+    }
+
+    public ResumeStatus getStatus() {
+        return status;
+    }
+
+    public void setRunId(UUID runId) {
+        this.runId = runId;
+    }
+
+    public UUID getRunId() {
+        return runId;
     }
 }
