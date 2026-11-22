@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -23,6 +24,8 @@ import com.aeroresume.backend.model.User;
 import com.aeroresume.backend.repository.ResumeRepository;
 import com.aeroresume.backend.repository.TemplateRepository;
 import com.aeroresume.backend.repository.UserRepository;
+import com.aeroresume.backend.templating.ResumeDataPreparer;
+import com.aeroresume.backend.templating.ResumeTemplateRenderer;
 
 @Service
 public class ResumeService {
@@ -36,19 +39,25 @@ public class ResumeService {
     private TemplateRepository templateRepository;
     private UserRepository userRepository;
     private ResumeMapper resumeMapper;
+    private ResumeDataPreparer resumeDataPreparer;
+    private ResumeTemplateRenderer resumeTemplateRenderer;
 
     public ResumeService(@Value("${resume.storage.temp-workspace}") String tempWorkspacePath, 
                         @Value("${resume.storage.permanentPath}") String permanentStoragePath,
                         ResumeRepository resumeRepository,
                         TemplateRepository templateRepository,
                         UserRepository userRepository,
-                        ResumeMapper resumeMapper) {
+                        ResumeMapper resumeMapper,
+                        ResumeDataPreparer resumeDataPreparer,
+                        ResumeTemplateRenderer resumeTemplateRenderer) {
         this.tempWorkspacePath = tempWorkspacePath;
         this.permanentStoragePath = permanentStoragePath;
         this.resumeRepository = resumeRepository;
         this.templateRepository = templateRepository;
         this.userRepository = userRepository;
         this.resumeMapper = resumeMapper;
+        this.resumeDataPreparer = resumeDataPreparer;
+        this.resumeTemplateRenderer = resumeTemplateRenderer;
     }
 
     /**
@@ -235,9 +244,13 @@ public class ResumeService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found for id: " + userId));
 
-        // Replace placeholders in the LaTeX boilerplate with user data
+        Map<String, Object> escapedJsonData = resumeDataPreparer.prepare(user.getMasterJsonData());
+        escapedJsonData.put("name", user.getFirstName() + " " + user.getLastName());
+        escapedJsonData.put("email", user.getEmail());
         
-        return user.getMasterJsonData() + latexString;
+        String renderedLatex = resumeTemplateRenderer.render(latexString, escapedJsonData);
+
+        return renderedLatex;
     }
 
     public ResumeResponse createResume(Long userId, Long templateId, String resumeName) {
